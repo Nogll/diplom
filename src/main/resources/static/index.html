@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bioactive Compounds Analysis</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container-fluid">
+        <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
+            <div class="container">
+                <a class="navbar-brand" href="#">🌿 Bioactive Compounds Analysis</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav ms-auto">
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" onclick="showUploadForm()">Upload Article</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" onclick="showInteractions()">View Interactions</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" onclick="showArticles()">View Articles</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container" id="mainContent">
+            <!-- Upload Form -->
+            <div id="uploadForm" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Upload Article Abstract</h2>
+                    </div>
+                    <div class="card-body">
+                        <form id="articleForm">
+                            <div class="mb-3">
+                                <label for="articleUrl" class="form-label">Article URL</label>
+                                <input type="text" class="form-control" id="articleUrl" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="articleTitle" class="form-label">Article Title</label>
+                                <input type="text" class="form-control" id="articleTitle" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="articleAbstract" class="form-label">Abstract</label>
+                                <textarea class="form-control" id="articleAbstract" rows="10" required></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Process Article</button>
+                        </form>
+                        <div id="uploadResult" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Articles List -->
+            <div id="articlesList" class="content-section" style="display: none;">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>All Articles</h2>
+                    </div>
+                    <div class="card-body">
+                        <div id="articlesContent"></div>
+                        <nav aria-label="Articles pagination">
+                            <ul class="pagination" id="articlesPagination"></ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Interactions List -->
+            <div id="interactionsList" class="content-section" style="display: none;">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Plant-Compound Interactions</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="filterPlant" class="form-label">Filter by Plant</label>
+                                <input type="text" class="form-control" id="filterPlant" placeholder="Plant name...">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="filterCompound" class="form-label">Filter by Compound</label>
+                                <input type="text" class="form-control" id="filterCompound" placeholder="Compound name...">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="filterEffect" class="form-label">Filter by Effect</label>
+                                <input type="text" class="form-control" id="filterEffect" placeholder="Effect...">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <button class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
+                            <button class="btn btn-secondary" onclick="clearFilters()">Clear Filters</button>
+                        </div>
+                        <div id="interactionsContent"></div>
+                        <nav aria-label="Interactions pagination">
+                            <ul class="pagination" id="interactionsPagination"></ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
+

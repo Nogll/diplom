@@ -1,0 +1,76 @@
+CREATE TABLE IF NOT EXISTS "interactions" (
+	"id" SERIAL NOT NULL UNIQUE,
+	"plant_id" INTEGER NOT NULL,
+	"compound_id" INTEGER NOT NULL,
+	"effects" TEXT ARRAY NOT NULL,
+	"plant_parts" TEXT ARRAY,
+	"source_id" INTEGER NOT NULL,
+	PRIMARY KEY("id")
+);
+
+
+
+
+CREATE TABLE IF NOT EXISTS "source" (
+	"id" SERIAL NOT NULL UNIQUE,
+	"article_id" INTEGER NOT NULL,
+	"model_id" INTEGER NOT NULL,
+	PRIMARY KEY("id")
+);
+
+
+
+
+CREATE TABLE IF NOT EXISTS "model" (
+	"id" SERIAL NOT NULL UNIQUE,
+	"name" TEXT NOT NULL,
+	"desc" TEXT,
+	PRIMARY KEY("id")
+);
+
+
+
+
+CREATE TABLE IF NOT EXISTS "article" (
+	"id" SERIAL NOT NULL UNIQUE,
+	"url" TEXT NOT NULL,
+	"title" TEXT NOT NULL,
+	"abstract" TEXT,
+	PRIMARY KEY("id")
+);
+
+
+
+
+CREATE TABLE IF NOT EXISTS "plant" (
+	"id" SERIAL NOT NULL UNIQUE,
+	"name" TEXT NOT NULL,
+	PRIMARY KEY("id")
+);
+
+
+
+
+CREATE TABLE IF NOT EXISTS "compound" (
+	"id" SERIAL NOT NULL UNIQUE,
+	"name" TEXT,
+	PRIMARY KEY("id")
+);
+
+
+
+ALTER TABLE "interactions"
+ADD FOREIGN KEY("source_id") REFERENCES "source"("id")
+ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE "source"
+ADD FOREIGN KEY("model_id") REFERENCES "model"("id")
+ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE "source"
+ADD FOREIGN KEY("article_id") REFERENCES "article"("id")
+ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE "interactions"
+ADD FOREIGN KEY("plant_id") REFERENCES "plant"("id")
+ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE "interactions"
+ADD FOREIGN KEY("compound_id") REFERENCES "compound"("id")
+ON UPDATE NO ACTION ON DELETE NO ACTION;

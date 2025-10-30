@@ -1,0 +1,209 @@
+databaseChangeLog:
+  - changeSet:
+      id: create-model-table
+      author: system
+      changes:
+        - createTable:
+            tableName: model
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: description
+                  type: TEXT
+
+  - changeSet:
+      id: create-plant-table
+      author: system
+      changes:
+        - createTable:
+            tableName: plant
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: create-compound-table
+      author: system
+      changes:
+        - createTable:
+            tableName: compound
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+
+  - changeSet:
+      id: create-article-table
+      author: system
+      changes:
+        - createTable:
+            tableName: article
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: url
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: title
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: abstract
+                  type: TEXT
+
+  - changeSet:
+      id: create-source-table
+      author: system
+      changes:
+        - createTable:
+            tableName: source
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: article_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: model_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: source
+            baseColumnNames: article_id
+            referencedTableName: article
+            referencedColumnNames: id
+            constraintName: fk_source_article
+        - addForeignKeyConstraint:
+            baseTableName: source
+            baseColumnNames: model_id
+            referencedTableName: model
+            referencedColumnNames: id
+            constraintName: fk_source_model
+
+  - changeSet:
+      id: create-interactions-table
+      author: system
+      changes:
+        - createTable:
+            tableName: interactions
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: plant_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: compound_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: effects
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: plant_parts
+                  type: TEXT
+              - column:
+                  name: source_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: interactions
+            baseColumnNames: plant_id
+            referencedTableName: plant
+            referencedColumnNames: id
+            constraintName: fk_interactions_plant
+        - addForeignKeyConstraint:
+            baseTableName: interactions
+            baseColumnNames: compound_id
+            referencedTableName: compound
+            referencedColumnNames: id
+            constraintName: fk_interactions_compound
+        - addForeignKeyConstraint:
+            baseTableName: interactions
+            baseColumnNames: source_id
+            referencedTableName: source
+            referencedColumnNames: id
+            constraintName: fk_interactions_source
+
+  - changeSet:
+      id: insert-default-model
+      author: system
+      changes:
+        - insert:
+            tableName: model
+            columns:
+              - column:
+                  name: name
+                  value: gemini-2.5-flash
+              - column:
+                  name: description
+                  value: Google Gemini 2.5 Flash model for extracting bioactive compound information
+
+  - changeSet:
+      id: add-raw-response-to-source
+      author: system
+      changes:
+        - addColumn:
+            tableName: source
+            columns:
+              - column:
+                  name: raw_response
+                  type: TEXT
+
+

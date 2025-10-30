@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service
 
 @Service
 class GeminiService {
-    private val client = Client()
+    private val client: Client by lazy { Client() }
     private val schema = Schema.builder()
         .type(Type.Known.ARRAY)
         .items(
