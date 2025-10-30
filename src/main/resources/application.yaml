@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: diplom
+
+  datasource:
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: password
+    url: jdbc:h2:mem:testdb
