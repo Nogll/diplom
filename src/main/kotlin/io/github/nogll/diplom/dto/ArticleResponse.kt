@@ -1,15 +1,15 @@
 package io.github.nogll.diplom.dto
 
-data class InteractionResponse(
-    val content: List<InteractionDto>,
+data class ArticleResponse(
+    val content: List<ArticleDto>,
     val totalElements: Long,
     val totalPages: Int,
     val currentPage: Int,
     val size: Int
 ) {
     companion object {
-        fun fromPage(page: org.springframework.data.domain.Page<InteractionDto>): InteractionResponse {
-            return InteractionResponse(
+        fun fromPage(page: org.springframework.data.domain.Page<ArticleDto>): ArticleResponse {
+            return ArticleResponse(
                 content = page.content,
                 totalElements = page.totalElements,
                 totalPages = page.totalPages,
@@ -19,4 +19,3 @@ data class InteractionResponse(
         }
     }
 }
-

@@ -7,11 +7,9 @@ import io.github.nogll.diplom.entity.*
 import io.github.nogll.diplom.llm.GeminiService
 import io.github.nogll.diplom.repository.*
 import org.springframework.data.domain.Page
-import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.util.*
 
 @Service
 class ArticleProcessingService(

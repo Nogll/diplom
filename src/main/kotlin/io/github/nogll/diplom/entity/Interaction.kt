@@ -1,7 +1,7 @@
 package io.github.nogll.diplom.entity
 
-import jakarta.persistence.*
 import com.fasterxml.jackson.databind.ObjectMapper
+import jakarta.persistence.*
 
 @Entity
 @Table(name = "interactions")
