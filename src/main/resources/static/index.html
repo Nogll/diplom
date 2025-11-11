@@ -26,6 +26,9 @@
                         <li class="nav-item">
                             <a class="nav-link" href="#" onclick="showArticles()">View Articles</a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" onclick="showPubMedSearch()">Search PubMed</a>
+                        </li>
                     </ul>
                 </div>
             </div>
@@ -102,6 +105,32 @@
                         <div id="interactionsContent"></div>
                         <nav aria-label="Interactions pagination">
                             <ul class="pagination" id="interactionsPagination"></ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PubMed Search -->
+            <div id="pubmedSearch" class="content-section" style="display: none;">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>🔬 Search PubMed</h2>
+                    </div>
+                    <div class="card-body">
+                        <form id="pubmedSearchForm" onsubmit="handlePubMedSearch(event)">
+                            <div class="row mb-3">
+                                <div class="col-md-10">
+                                    <input type="text" class="form-control" id="pubmedQuery" 
+                                           placeholder="Enter search query (e.g., 'garlic compounds')" required>
+                                </div>
+                                <div class="col-md-2">
+                                    <button type="submit" class="btn btn-primary w-100">Search</button>
+                                </div>
+                            </div>
+                        </form>
+                        <div id="pubmedResults"></div>
+                        <nav aria-label="PubMed pagination" id="pubmedPaginationContainer" style="display: none;">
+                            <ul class="pagination" id="pubmedPagination"></ul>
                         </nav>
                     </div>
                 </div>

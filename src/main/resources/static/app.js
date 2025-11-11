@@ -39,6 +39,14 @@ function hideAllSections() {
     document.getElementById('uploadForm').style.display = 'none';
     document.getElementById('articlesList').style.display = 'none';
     document.getElementById('interactionsList').style.display = 'none';
+    document.getElementById('pubmedSearch').style.display = 'none';
+}
+
+function showPubMedSearch() {
+    hideAllSections();
+    document.getElementById('pubmedSearch').style.display = 'block';
+    document.getElementById('pubmedResults').innerHTML = '';
+    document.getElementById('pubmedPaginationContainer').style.display = 'none';
 }
 
 async function handleArticleSubmit(e) {
@@ -364,5 +372,193 @@ function createSourceModal() {
         </div>
     `;
     document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+// PubMed search functions
+let currentPubMedQuery = '';
+let currentPubMedPage = 1;
+
+async function handlePubMedSearch(event) {
+    event.preventDefault();
+    const query = document.getElementById('pubmedQuery').value.trim();
+    if (!query) return;
+    
+    currentPubMedQuery = query;
+    currentPubMedPage = 1;
+    await loadPubMedResults(query, 1);
+}
+
+async function loadPubMedResults(query, page = 1) {
+    const resultsDiv = document.getElementById('pubmedResults');
+    resultsDiv.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Searching PubMed...</p></div>';
+    
+    try {
+        const response = await fetch(`/api/v1/pubmed/search?query=${encodeURIComponent(query)}&page=${page}`);
+        const data = await response.json();
+        
+        if (!data.articles || data.articles.length === 0) {
+            resultsDiv.innerHTML = `
+                <div class="alert alert-info">
+                    <strong>No articles found</strong> for query: "${escapeHtml(query)}"
+                </div>
+            `;
+            document.getElementById('pubmedPaginationContainer').style.display = 'none';
+            return;
+        }
+        
+        let html = `<h5 class="mb-3">Found ${data.articles.length} article(s) - Page ${data.currentPage} of ${data.totalPages}</h5>`;
+        
+        data.articles.forEach((article, index) => {
+            const abstractId = `abstract-${index}`;
+            html += `
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">${escapeHtml(article.title)}</h5>
+                        <p class="text-muted mb-2">
+                            <a href="${escapeHtml(article.url)}" target="_blank" class="text-decoration-none">
+                                ${escapeHtml(article.url)}
+                            </a>
+                        </p>
+                        <div id="${abstractId}" class="mt-2"></div>
+                        <div class="mt-2">
+                            <button class="btn btn-sm btn-info me-2" onclick="showPubMedAbstract('${escapeHtml(article.url)}', '${abstractId}')">
+                                Show Abstract
+                            </button>
+                            <button class="btn btn-sm btn-success" onclick="uploadPubMedArticle('${escapeHtml(article.url)}', '${escapeHtml(article.title)}', '${abstractId}')">
+                                Upload Article
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        resultsDiv.innerHTML = html;
+        
+        // Render pagination
+        if (data.totalPages > 1) {
+            document.getElementById('pubmedPaginationContainer').style.display = 'block';
+            renderPagination('pubmedPagination', data.totalPages, data.currentPage - 1, data.articles.length, 
+                (p) => loadPubMedResults(currentPubMedQuery, p + 1));
+        } else {
+            document.getElementById('pubmedPaginationContainer').style.display = 'none';
+        }
+        
+    } catch (error) {
+        resultsDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <strong>Error!</strong> ${error.message}
+            </div>
+        `;
+    }
+}
+
+async function showPubMedAbstract(articleUrl, abstractDivId) {
+    const abstractDiv = document.getElementById(abstractDivId);
+    const button = event.target;
+    
+    // Check if abstract is already loaded
+    if (abstractDiv.innerHTML.trim() !== '' && !abstractDiv.innerHTML.includes('spinner')) {
+        abstractDiv.innerHTML = '';
+        button.textContent = 'Show Abstract';
+        return;
+    }
+    
+    abstractDiv.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Loading abstract...';
+    button.textContent = 'Loading...';
+    button.disabled = true;
+    
+    try {
+        const response = await fetch(`/api/v1/pubmed/article/abstract?url=${encodeURIComponent(articleUrl)}`);
+        const data = await response.json();
+        
+        if (data.abstract) {
+            abstractDiv.innerHTML = `
+                <div class="alert alert-light border">
+                    <h6>Abstract:</h6>
+                    <p>${escapeHtml(data.abstract)}</p>
+                </div>
+            `;
+            button.textContent = 'Hide Abstract';
+        } else {
+            abstractDiv.innerHTML = `
+                <div class="alert alert-warning">
+                    Abstract not available for this article.
+                </div>
+            `;
+            button.textContent = 'Show Abstract';
+        }
+    } catch (error) {
+        abstractDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <strong>Error!</strong> Failed to load abstract: ${error.message}
+            </div>
+        `;
+        button.textContent = 'Show Abstract';
+    } finally {
+        button.disabled = false;
+    }
+}
+
+async function uploadPubMedArticle(articleUrl, articleTitle, abstractDivId) {
+    const abstractDiv = document.getElementById(abstractDivId);
+    const button = event.target;
+    const originalText = button.textContent;
+    
+    button.textContent = 'Processing...';
+    button.disabled = true;
+    
+    try {
+        // First, get the abstract if not already loaded
+        let abstract = '';
+        if (abstractDiv.innerHTML.trim() === '' || abstractDiv.innerHTML.includes('spinner')) {
+            const abstractResponse = await fetch(`/api/v1/pubmed/article/abstract?url=${encodeURIComponent(articleUrl)}`);
+            const abstractData = await abstractResponse.json();
+            abstract = abstractData.abstract || '';
+        } else {
+            // Extract abstract from the div if already loaded
+            const abstractText = abstractDiv.querySelector('p');
+            if (abstractText) {
+                abstract = abstractText.textContent;
+            }
+        }
+        
+        if (!abstract) {
+            throw new Error('Abstract is required to process the article. Please load the abstract first.');
+        }
+        
+        // Process the article
+        const response = await fetch('/api/v1/pubmed/article/process', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: new URLSearchParams({
+                url: articleUrl,
+                title: articleTitle,
+                abstract: abstract
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            button.innerHTML = '<span class="text-success">✓ Uploaded</span>';
+            button.classList.remove('btn-success');
+            button.classList.add('btn-outline-success');
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.classList.remove('btn-outline-success');
+                button.classList.add('btn-success');
+                button.disabled = false;
+            }, 2000);
+        } else {
+            throw new Error(data.message || 'Failed to process article');
+        }
+    } catch (error) {
+        alert(`Error processing article: ${error.message}`);
+        button.textContent = originalText;
+        button.disabled = false;
+    }
 }
 
