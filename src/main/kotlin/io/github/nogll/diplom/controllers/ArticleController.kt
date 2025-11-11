@@ -5,8 +5,13 @@ import io.github.nogll.diplom.service.ArticleProcessingService
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
+import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 @RestController
 @RequestMapping("/api/v1")
@@ -90,6 +95,26 @@ class ArticleController(
             modelName = source.model.name,
             rawResponse = source.rawResponse
         )
+    }
+    
+    @GetMapping("/interactions/csv")
+    fun downloadInteractionsCsv(
+        @RequestParam(required = false) plantName: String?,
+        @RequestParam(required = false) compoundName: String?,
+        @RequestParam(required = false) effect: String?
+    ): ResponseEntity<String> {
+        val csvContent = articleProcessingService.generateCsv(plantName, compoundName, effect)
+        
+        val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
+        val filename = "interactions_$timestamp.csv"
+        
+        val headers = HttpHeaders()
+        headers.contentType = MediaType("text", "csv")
+        headers.setContentDispositionFormData("attachment", filename)
+        
+        return ResponseEntity.ok()
+            .headers(headers)
+            .body(csvContent)
     }
 
     @ExceptionHandler(NotFoundException::class)

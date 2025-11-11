@@ -102,6 +102,70 @@ class ArticleProcessingService(
     fun getSourceById(sourceId: Long): Source? {
         return sourceRepository.findByIdWithRelations(sourceId)
     }
+    
+    @Transactional(readOnly = true)
+    fun getAllInteractionsForCsv(plantName: String?, compoundName: String?, effect: String?): List<Interaction> {
+        return if (plantName.isNullOrBlank() && compoundName.isNullOrBlank() && effect.isNullOrBlank()) {
+            interactionRepository.findAllWithRelations()
+        } else {
+            interactionRepository.findAllWithFilters(
+                plantName = if (plantName.isNullOrBlank()) null else plantName,
+                compoundName = if (compoundName.isNullOrBlank()) null else compoundName,
+                effect = if (effect.isNullOrBlank()) null else effect
+            )
+        }
+    }
+    
+    fun generateCsv(plantName: String?, compoundName: String?, effect: String?): String {
+        val interactions = getAllInteractionsForCsv(plantName, compoundName, effect)
+        
+        val csvRows = mutableListOf<String>()
+        
+        // CSV Header
+        csvRows.add("row,plant,compound,effect,article,model")
+        
+        // CSV Data - one row per effect
+        var rowNumber = 1
+        interactions.forEach { interaction ->
+            val plant = interaction.plant.name
+            val compound = interaction.compound.name ?: ""
+            val articleUrl = interaction.source.article.url
+            val modelName = interaction.source.model.name
+            val effects = interaction.getEffectsList()
+            
+            if (effects.isEmpty()) {
+                // If no effects, still create one row with empty effect
+                csvRows.add(escapeCsvValue(rowNumber.toString()) + "," +
+                           escapeCsvValue(plant) + "," +
+                           escapeCsvValue(compound) + "," +
+                           escapeCsvValue("") + "," +
+                           escapeCsvValue(articleUrl) + "," +
+                           escapeCsvValue(modelName))
+                rowNumber++
+            } else {
+                // Create one row per effect
+                effects.forEach { effectValue ->
+                    csvRows.add(escapeCsvValue(rowNumber.toString()) + "," +
+                               escapeCsvValue(plant) + "," +
+                               escapeCsvValue(compound) + "," +
+                               escapeCsvValue(effectValue) + "," +
+                               escapeCsvValue(articleUrl) + "," +
+                               escapeCsvValue(modelName))
+                    rowNumber++
+                }
+            }
+        }
+        
+        return csvRows.joinToString("\n")
+    }
+    
+    private fun escapeCsvValue(value: String): String {
+        // If value contains comma, newline, or quote, wrap in quotes and escape quotes
+        if (value.contains(",") || value.contains("\n") || value.contains("\"") || value.contains("\r")) {
+            return "\"" + value.replace("\"", "\"\"") + "\""
+        }
+        return value
+    }
 
     private data class ExtractedInteraction(
         val plant: String,

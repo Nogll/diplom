@@ -17,6 +17,8 @@
 - **Migrations**: Liquibase
 - **AI**: Google Gemini SDK (com.google.genai:1.24.0)
 - **API Docs**: SpringDoc OpenAPI/Swagger
+- **HTML Parsing**: Jsoup (1.17.2) for PubMed integration
+- **HTTP Client**: Spring RestClient for external API calls
 
 ### Frontend
 - HTML5, CSS3, JavaScript (vanilla, no frameworks)
@@ -37,13 +39,17 @@ src/main/
 │   │   └── MvcConfig.kt               # MVC configuration, CORS setup
 │   ├── controllers/
 │   │   ├── ArticleController.kt       # REST API (/api/v1/*)
+│   │   ├── PubMedController.kt        # PubMed search endpoints
 │   │   └── FrontendController.kt      # Frontend routing (/)
 │   ├── dto/
 │   │   ├── ProcessArticleRequest.kt   # Request for processing articles
 │   │   ├── ArticleDto.kt              # Article data transfer
 │   │   ├── InteractionDto.kt          # Interaction data transfer
 │   │   ├── InteractionResponse.kt     # Paginated response wrapper
-│   │   └── SourceDto.kt               # AI source data transfer
+│   │   ├── ArticleResponse.kt         # Paginated article response
+│   │   ├── SourceDto.kt               # AI source data transfer
+│   │   ├── PubMedArticleDto.kt       # PubMed article data
+│   │   └── PubMedSearchResponse.kt   # PubMed search results
 │   ├── entity/
 │   │   ├── Model.kt                   # AI model metadata
 │   │   ├── Plant.kt                   # Plant entity
@@ -61,7 +67,8 @@ src/main/
 │   │   ├── SourceRepository.kt
 │   │   └── InteractionRepository.kt   # Custom queries with JOIN FETCH
 │   └── service/
-│       └── ArticleProcessingService.kt # Business logic
+│       ├── ArticleProcessingService.kt # Business logic + CSV generation
+│       └── PubMedService.kt            # PubMed search and parsing
 └── resources/
     ├── db/changelog/
     │   ├── db.changelog-master.yaml    # Liquibase master file
@@ -112,18 +119,39 @@ src/main/
   - Effect/mechanism
 - View raw AI responses per article
 
-### 3. API Endpoints
+### 3. PubMed Search Integration
+- Search PubMed database directly from the application
+- Display article titles and URLs from search results
+- Lazy-load abstracts on demand (click "Show Abstract")
+- Upload articles directly from PubMed search results
+- Pagination support for search results
+- Uses Spring RestClient and Jsoup for HTML parsing
+
+### 4. CSV Export
+- Export all interactions or filtered subset to CSV
+- One row per effect (expanded format for analysis)
+- Columns: row, plant, compound, effect, article, model
+- Respects current filter settings
+- Timestamped filenames
+- Ready for pandas/Excel analysis
+
+### 5. API Endpoints
 - `POST /api/v1/articles/process` - Process article
 - `GET /api/v1/articles` - Get all articles (paginated)
 - `GET /api/v1/articles/{id}/sources` - Get sources for article
 - `GET /api/v1/sources/{id}` - Get specific source with raw response
 - `GET /api/v1/interactions` - Get filtered interactions (paginated)
+- `GET /api/v1/interactions/csv` - Download interactions as CSV
+- `GET /api/v1/pubmed/search` - Search PubMed (query, page)
+- `GET /api/v1/pubmed/article/abstract` - Get article abstract by URL
+- `POST /api/v1/pubmed/article/process` - Process article from PubMed
 
-### 4. Frontend
-- Three main sections:
+### 6. Frontend
+- Four main sections:
   - Upload form for articles
   - Articles list with source viewing
-  - Interactions list with filtering
+  - Interactions list with filtering and CSV export
+  - PubMed search with article discovery
 - Bootstrap 5 UI with modals
 - Pagination with event listeners (fixed closure issues)
 
@@ -170,6 +198,22 @@ fun findAllWithRelations(pageable: Pageable): Page<Interaction>
 - Schema changes in separate changesets
 - Auto-runs on startup
 - Tracked in DATABASECHANGELOG table
+
+### PubMed Integration
+- **PubMedService**: Uses Spring RestClient to fetch HTML from PubMed
+- **HTML Parsing**: Jsoup library with multiple selector fallbacks for robustness
+- **Search**: Parses search results page to extract article titles and URLs
+- **Abstract Extraction**: Fetches individual article pages and extracts abstracts using multiple selector strategies
+- **Pagination**: Calculates total pages from search results
+- **Error Handling**: Graceful fallbacks if parsing fails
+
+### CSV Export
+- **Format**: Standard CSV with proper escaping for special characters
+- **Expansion**: One row per effect (if interaction has 3 effects, creates 3 rows)
+- **Filtering**: Respects current filter parameters (plantName, compoundName, effect)
+- **Columns**: row (sequential number), plant, compound, effect, article (URL), model
+- **File Naming**: Timestamped filenames (interactions_YYYYMMDD_HHMMSS.csv)
+- **Use Case**: Designed for pandas/Excel analysis and data science workflows
 
 ## Common Tasks
 
@@ -270,6 +314,8 @@ fun findAllWithRelations(pageable: Pageable): Page<Interaction>
 5. Apply filters
 6. Check pagination
 7. View raw AI responses
+8. Test PubMed search: Search for articles, view abstracts, upload from PubMed
+9. Test CSV export: Download CSV with and without filters
 
 ### Test Data Example
 ```json
@@ -284,19 +330,21 @@ fun findAllWithRelations(pageable: Pageable): Page<Interaction>
 
 - User authentication
 - Multiple AI model support
-- Export functionality
 - Advanced search
 - Admin panel
 - Batch processing
 - API rate limiting
+- Metrics and analytics dashboard
 
 ## Dependencies to Know
 
 - `spring-boot-starter-web` - REST API
 - `spring-boot-starter-data-jpa` - Database access
+- `spring-boot-starter-webflux` - WebFlux for RestClient
 - `liquibase-core` - Migrations
 - `com.google.genai` - Gemini AI
 - `springdoc-openapi` - API docs
+- `org.jsoup:jsoup` - HTML parsing for PubMed
 - `h2` - Development database
 - `postgresql` - Production database (configured, not used)
 

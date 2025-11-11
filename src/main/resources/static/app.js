@@ -221,6 +221,36 @@ function clearFilters() {
     loadInteractions();
 }
 
+function downloadCsv() {
+    // Build query parameters from current filter input values
+    const params = new URLSearchParams();
+    
+    const plantName = document.getElementById('filterPlant').value.trim();
+    const compoundName = document.getElementById('filterCompound').value.trim();
+    const effect = document.getElementById('filterEffect').value.trim();
+    
+    if (plantName) {
+        params.append('plantName', plantName);
+    }
+    if (compoundName) {
+        params.append('compoundName', compoundName);
+    }
+    if (effect) {
+        params.append('effect', effect);
+    }
+    
+    // Create download link
+    const url = `/api/v1/interactions/csv${params.toString() ? '?' + params.toString() : ''}`;
+    
+    // Create a temporary anchor element to trigger download
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'interactions.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
 function renderPagination(elementId, totalPages, currentPage, totalElements, onPageClick) {
     const pagination = document.getElementById(elementId);
     

@@ -15,6 +15,8 @@ Web-приложение для анализа научных статей и и
 - **AI**: Google Gemini 2.5 Flash
 - **Frontend**: HTML5, CSS3, JavaScript, Bootstrap 5
 - **API Documentation**: OpenAPI/Swagger
+- **HTML Parsing**: Jsoup (для интеграции с PubMed)
+- **HTTP Client**: Spring RestClient
 
 ## Структура проекта
 
@@ -66,11 +68,33 @@ src/main/
   - Названию растения
   - Названию соединения
   - Эффекту/механизму действия
+- Просмотр исходных ответов AI для каждой статьи
 
-### 3. API
+### 3. Поиск в PubMed
+- Поиск статей напрямую в базе данных PubMed
+- Отображение результатов поиска с названиями и URL статей
+- Ленивая загрузка абстрактов (по клику "Show Abstract")
+- Загрузка статей напрямую из результатов поиска PubMed
+- Пагинация результатов поиска
+
+### 4. Экспорт в CSV
+- Экспорт всех взаимодействий или отфильтрованного подмножества в CSV
+- Одна строка на эффект (расширенный формат для анализа)
+- Колонки: row, plant, compound, effect, article, model
+- Учитывает текущие настройки фильтров
+- Имена файлов с временной меткой
+- Готово для анализа в pandas/Excel
+
+### 5. API
 - `POST /api/v1/articles/process` - обработка статьи
 - `GET /api/v1/articles` - получить список статей
+- `GET /api/v1/articles/{id}/sources` - получить источники для статьи
+- `GET /api/v1/sources/{id}` - получить конкретный источник с исходным ответом
 - `GET /api/v1/interactions` - получить взаимодействия с фильтрами
+- `GET /api/v1/interactions/csv` - скачать взаимодействия в формате CSV
+- `GET /api/v1/pubmed/search` - поиск в PubMed (query, page)
+- `GET /api/v1/pubmed/article/abstract` - получить абстракт статьи по URL
+- `POST /api/v1/pubmed/article/process` - обработать статью из PubMed
 
 ## Запуск
 
@@ -132,7 +156,22 @@ API документация доступна по адресу: http://localhos
 ### AI Integration
 - Используется Google Gemini 2.5 Flash модель
 - Структурированный вывод в формате JSON
-- Автоматическое создание/найск существующих записей для растений и соединений
+- Автоматическое создание/поиск существующих записей для растений и соединений
+- Сохранение исходных ответов AI для отладки и аудита
+
+### PubMed Integration
+- Использует Spring RestClient для получения HTML из PubMed
+- Парсинг HTML с помощью библиотеки Jsoup
+- Множественные стратегии селекторов для надежности
+- Извлечение абстрактов с индивидуальных страниц статей
+
+### CSV Export
+- Стандартный формат CSV с правильным экранированием специальных символов
+- Расширение: одна строка на эффект (если взаимодействие имеет 3 эффекта, создается 3 строки)
+- Фильтрация: учитывает текущие параметры фильтров
+- Колонки: row (последовательный номер), plant, compound, effect, article (URL), model
+- Имена файлов с временной меткой
+- Предназначено для анализа в pandas/Excel
 
 ## Формат входных данных
 
@@ -148,6 +187,19 @@ API документация доступна по адресу: http://localhos
   }
 ]
 ```
+
+## Формат CSV экспорта
+
+Экспортированный CSV файл содержит следующие колонки:
+
+```csv
+row,plant,compound,effect,article,model
+1,Curcuma longa,curcumin,anti-inflammatory,https://example.com/article,gemini-2.5-flash
+2,Curcuma longa,curcumin,antioxidant,https://example.com/article,gemini-2.5-flash
+3,Garlic,allicin,antimicrobial,https://example.com/article2,gemini-2.5-flash
+```
+
+Каждый эффект создает отдельную строку, что удобно для анализа в pandas или Excel.
 
 ## Лицензия
 
