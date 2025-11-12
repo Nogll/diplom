@@ -14,9 +14,8 @@ class PubMedService {
     private val client = RestClient.create("https://pubmed.ncbi.nlm.nih.gov")
     
     fun searchArticles(query: String, page: Int = 1): List<PubMedArticleDto> {
-        val encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8)
         val html = client.get()
-            .uri("/?term={query}&page={page}", encodedQuery, page)
+            .uri("/?term={query}&page={page}", query, page)
             .retrieve()
             .body(String::class.java) ?: return emptyList()
         
