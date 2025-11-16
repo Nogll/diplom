@@ -17,12 +17,14 @@ java {
 }
 
 repositories {
+	mavenLocal()
 	mavenCentral()
 }
 
 dependencies {
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.13")
-    implementation("com.google.genai:google-genai:1.24.0")
+    implementation("com.google.genai:google-genai:2.0.0")
+    //implementation(files("libs/google-genai-1.27.0.jar"))
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-web")
 	implementation("org.springframework.boot:spring-boot-starter-webflux")

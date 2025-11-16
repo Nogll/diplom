@@ -1,15 +1,23 @@
 package io.github.nogll.diplom.llm
 
 import com.google.genai.Client
+import com.google.genai.GlobalConfig
+import com.google.genai.types.ClientOptions
 import com.google.genai.types.GenerateContentConfig
 import com.google.genai.types.Schema
 import com.google.genai.types.ThinkingConfig
 import com.google.genai.types.Type
+import io.github.nogll.diplom.service.llmclient.GeminiClientService
 import org.springframework.stereotype.Service
+import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.Proxy
 
 @Service
-class GeminiService {
-    private val client: Client by lazy { Client() }
+class GeminiService(
+    val geminiClientService: GeminiClientService
+) {
+    private val client get() = geminiClientService.client
     private val schema = Schema.builder()
         .type(Type.Known.ARRAY)
         .items(
