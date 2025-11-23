@@ -16,9 +16,9 @@ interface InteractionRepository : JpaRepository<Interaction, Long> {
             "LEFT JOIN FETCH i.source s " +
             "LEFT JOIN FETCH s.model " +
             "LEFT JOIN FETCH s.article " +
-            "WHERE (:plantName IS NULL OR LOWER(i.plant.name) LIKE LOWER(CONCAT('%', :plantName, '%'))) " +
-            "AND (:compoundName IS NULL OR LOWER(i.compound.name) LIKE LOWER(CONCAT('%', :compoundName, '%'))) " +
-            "AND (:effect IS NULL OR LOWER(i.effects) LIKE LOWER(CONCAT('%', :effect, '%')))")
+            "WHERE (LOWER(i.plant.name) LIKE LOWER(CONCAT('%', :plantName, '%')) OR :plantName IS NULL) " +
+            "AND (i.compound.name IS NULL OR LOWER(i.compound.name) LIKE LOWER(CONCAT('%', :compoundName, '%')) OR :compoundName IS NULL) " +
+            "AND (LOWER(i.effects) LIKE LOWER(CONCAT('%', :effect, '%')) OR :effect IS NULL)")
     fun findByFilters(
         @Param("plantName") plantName: String?,
         @Param("compoundName") compoundName: String?,
@@ -40,9 +40,9 @@ interface InteractionRepository : JpaRepository<Interaction, Long> {
             "LEFT JOIN FETCH i.source s " +
             "LEFT JOIN FETCH s.model " +
             "LEFT JOIN FETCH s.article " +
-            "WHERE (:plantName IS NULL OR LOWER(i.plant.name) LIKE LOWER(CONCAT('%', :plantName, '%'))) " +
-            "AND (:compoundName IS NULL OR LOWER(i.compound.name) LIKE LOWER(CONCAT('%', :compoundName, '%'))) " +
-            "AND (:effect IS NULL OR LOWER(i.effects) LIKE LOWER(CONCAT('%', :effect, '%')))")
+            "WHERE (LOWER(i.plant.name) LIKE LOWER(CONCAT('%', :plantName, '%')) OR :plantName IS NULL) " +
+            "AND (i.compound.name IS NULL OR LOWER(i.compound.name) LIKE LOWER(CONCAT('%', :compoundName, '%')) OR :compoundName IS NULL) " +
+            "AND (LOWER(i.effects) LIKE LOWER(CONCAT('%', :effect, '%')) OR :effect IS NULL)")
     fun findAllWithFilters(
         @Param("plantName") plantName: String?,
         @Param("compoundName") compoundName: String?,
