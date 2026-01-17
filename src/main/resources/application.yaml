@@ -15,12 +15,24 @@ spring:
   jpa:
     hibernate:
       ddl-auto: none
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
+        show_sql: false
         format_sql: true
     open-in-view: false
 
 server:
   error:
     include-message: always
+
+llm:
+  model: openai
+  openai:
+    base-url: https://api.artemox.com/v1
+    api-key: ${OPENAI_API_KEY}
+
+logging:
+  level:
+    root: INFO
+    io.github.nogll.diplom: DEBUG

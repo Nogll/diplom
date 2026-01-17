@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS "source" (
 	"id" SERIAL NOT NULL UNIQUE,
 	"article_id" INTEGER NOT NULL,
 	"model_id" INTEGER NOT NULL,
+	"raw_response" TEXT,
 	PRIMARY KEY("id")
 );
 

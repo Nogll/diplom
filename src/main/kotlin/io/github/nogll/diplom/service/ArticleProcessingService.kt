@@ -4,16 +4,17 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import io.github.nogll.diplom.dto.ProcessArticleRequest
 import io.github.nogll.diplom.entity.*
-import io.github.nogll.diplom.llm.GeminiService
+import io.github.nogll.diplom.llm.ArticleProcessingLLM
 import io.github.nogll.diplom.repository.*
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 
 @Service
 class ArticleProcessingService(
-    private val geminiService: GeminiService,
+    private val articleProcessingLLM: ArticleProcessingLLM,
     private val articleRepository: ArticleRepository,
     private val plantRepository: PlantRepository,
     private val compoundRepository: CompoundRepository,
@@ -23,13 +24,10 @@ class ArticleProcessingService(
 ) {
     private val objectMapper = jacksonObjectMapper()
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     fun processArticle(request: ProcessArticleRequest): List<Interaction> {
-        // Generate extraction using Gemini
-        val geminiResponse = geminiService.generate(request.abstract)
-        
-        // Parse the response
-        val extractedData: List<ExtractedInteraction> = objectMapper.readValue(geminiResponse)
+        // Generate extraction using LLM
+        val extractedData = articleProcessingLLM.process(request.abstract)
         
         // Get or create model
         val model = modelRepository.findById(1).orElseGet {
@@ -41,11 +39,11 @@ class ArticleProcessingService(
             Article(url = request.url, title = request.title, abstract = request.abstract)
         )
         
-        // Save source with raw response
+        // Save source (raw response can be stored separately if needed)
         val source = Source().apply {
             this.article = article
             this.model = model
-            this.rawResponse = geminiResponse
+            this.rawResponse = objectMapper.writeValueAsString(extractedData)
         }
         val savedSource = sourceRepository.save(source)
         
@@ -167,11 +165,5 @@ class ArticleProcessingService(
         return value
     }
 
-    private data class ExtractedInteraction(
-        val plant: String,
-        val compound: String,
-        val effects: List<String>,
-        val part: List<String>? = null
-    )
 }
 

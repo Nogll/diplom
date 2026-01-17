@@ -22,6 +22,7 @@ repositories {
 }
 
 dependencies {
+	implementation("com.openai:openai-java:4.13.0")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.13")
     implementation("com.google.genai:google-genai:2.0.0")
     //implementation(files("libs/google-genai-1.27.0.jar"))

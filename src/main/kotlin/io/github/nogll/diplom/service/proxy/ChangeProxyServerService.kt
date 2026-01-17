@@ -27,10 +27,18 @@ class ChangeProxyServerService(
 
     @PostConstruct
     fun init() {
+//        changeProxy(ProxyChangeRequest(
+//            Proxy.Type.HTTP,
+//            "localhost",
+//            8888,
+//            null,
+//            null
+//        ))
+
         changeProxy(ProxyChangeRequest(
-            Proxy.Type.HTTP,
+            Proxy.Type.SOCKS,
             "localhost",
-            8888,
+            10808,
             null,
             null
         ))
