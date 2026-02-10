@@ -15,7 +15,7 @@ class ChatWorker(
 ) {
     private val logger = LoggerFactory.getLogger(ChatWorker::class.java)
 
-    @Scheduled(fixedDelay = 10000) // Check every 2 seconds
+    @Scheduled(fixedDelay = 10000)
     fun processChats() {
         try {
             // Process user message analysis

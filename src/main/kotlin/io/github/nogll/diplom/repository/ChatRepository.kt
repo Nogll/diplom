@@ -11,5 +11,8 @@ import java.util.*
 interface ChatRepository : JpaRepository<Chat, UUID> {
     @Query("SELECT c FROM Chat c WHERE c.status = :status ORDER BY c.lastUpdate ASC")
     fun findByStatusOrderByLastUpdateAsc(status: ChatStatus): List<Chat>
+    
+    @Query("SELECT c FROM Chat c ORDER BY c.lastUpdate DESC")
+    fun findAllOrderByLastUpdateDesc(): List<Chat>
 }
 

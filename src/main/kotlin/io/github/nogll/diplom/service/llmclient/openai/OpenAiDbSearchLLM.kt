@@ -9,6 +9,8 @@ import io.github.nogll.diplom.llm.DbSearchLLM
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Service
 import kotlin.jvm.optionals.asSequence
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.toJavaDuration
 
 @Service
 @ConditionalOnProperty(name = ["llm.model"], havingValue = "openai")
@@ -54,6 +56,7 @@ class OpenAiDbSearchLLM(
             .responseFormat(Response::class.java, JsonSchemaLocalValidation.NO)
             .build()
 
+        Thread.sleep(15.seconds.toJavaDuration())
         val result = clientService.client.chat().completions().create(params).choices().asSequence()
             .flatMap { it.message().content().asSequence() }
             .firstOrNull()

@@ -138,6 +138,54 @@
             background-color: #28a745;
             border-color: #28a745;
         }
+        .chat-list-container {
+            padding: 20px;
+        }
+        .chat-list-item {
+            padding: 15px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #fff;
+            cursor: pointer;
+            transition: background-color 0.2s, box-shadow 0.2s;
+        }
+        .chat-list-item:hover {
+            background-color: #f8f9fa;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .chat-list-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .chat-list-item-message {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        .new-chat-button {
+            margin-bottom: 20px;
+        }
+        .delete-chat-button {
+            padding: 5px 10px;
+            font-size: 0.85em;
+            border: 1px solid #dc3545;
+            background-color: #dc3545;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .delete-chat-button:hover {
+            background-color: #c82333;
+        }
+        .chat-list-item-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
     </style>
 </head>
 <body>
@@ -150,19 +198,24 @@
         </div>
     </nav>
 
-    <div class="chat-container">
+    <div class="chat-container" id="chatContainer">
         <div class="chat-header">
             <h3>AI Chat - Bioactive Compounds Research Assistant</h3>
-            <div id="statusBadge" class="status-badge">Loading...</div>
+            <div id="statusBadge" class="status-badge" style="display: none;">Loading...</div>
         </div>
 
-        <div class="chat-messages" id="chatMessages">
+        <div id="chatListContainer" class="chat-list-container" style="display: none;">
+            <button class="btn btn-primary new-chat-button" onclick="createNewChat()">Начать новый чат</button>
+            <div id="chatList"></div>
+        </div>
+
+        <div class="chat-messages" id="chatMessages" style="display: none;">
             <div class="message status-message">
                 Loading chat...
             </div>
         </div>
 
-        <div class="chat-input">
+        <div class="chat-input" id="chatInput" style="display: none;">
             <form id="messageForm">
                 <div class="input-group">
                     <input type="text" class="form-control" id="messageInput" 
@@ -175,7 +228,8 @@
     </div>
 
     <script>
-        const chatId = window.location.pathname.split('/').pop();
+        const pathParts = window.location.pathname.split('/').filter(p => p);
+        const chatId = pathParts.length > 1 && pathParts[1] !== 'new' ? pathParts[1] : null;
         let pollInterval;
 
         function updateStatusBadge(status) {
@@ -438,8 +492,112 @@
             }
         });
 
-        // Initial load
-        loadChat();
+        function getStatusBadgeClass(status) {
+            if (status === 'COMPLETE') {
+                return 'status-complete';
+            } else if (status === 'FAILED') {
+                return 'status-failed';
+            } else {
+                return 'status-processing';
+            }
+        }
+
+        function getStatusText(status) {
+            return status.replace(/_/g, ' ');
+        }
+
+        async function loadChatList() {
+            try {
+                const response = await fetch('/api/v1/chat');
+                if (!response.ok) throw new Error('Failed to load chat list');
+                const data = await response.json();
+                renderChatList(data.chats);
+            } catch (error) {
+                console.error('Error loading chat list:', error);
+                document.getElementById('chatList').innerHTML = 
+                    '<div class="alert alert-danger">Error loading chat list. Please refresh the page.</div>';
+            }
+        }
+
+        function renderChatList(chats) {
+            const chatListDiv = document.getElementById('chatList');
+            
+            if (chats.length === 0) {
+                chatListDiv.innerHTML = '<div class="alert alert-info">No chats yet. Start a new chat to begin!</div>';
+                return;
+            }
+
+            let html = '';
+            chats.forEach(chat => {
+                const statusClass = getStatusBadgeClass(chat.status);
+                const statusText = getStatusText(chat.status);
+                const messagePreview = chat.userMessage || '(No message yet)';
+                
+                html += `
+                    <div class="chat-list-item" onclick="openChat('${chat.id}')">
+                        <div class="chat-list-item-header">
+                            <div class="chat-list-item-actions">
+                                <span class="status-badge ${statusClass}">${statusText}</span>
+                                <button class="delete-chat-button" onclick="event.stopPropagation(); deleteChat('${chat.id}')" title="Delete chat">
+                                    🗑️ Delete
+                                </button>
+                            </div>
+                        </div>
+                        <div class="chat-list-item-message">${messagePreview}</div>
+                    </div>
+                `;
+            });
+            
+            chatListDiv.innerHTML = html;
+        }
+
+        function openChat(id) {
+            window.location.href = `/chat/${id}`;
+        }
+
+        function createNewChat() {
+            window.location.href = '/chat/new';
+        }
+
+        async function deleteChat(id) {
+            if (!confirm('Are you sure you want to delete this chat? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/v1/chat/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Failed to delete chat');
+                }
+
+                // Reload chat list after successful deletion
+                loadChatList();
+            } catch (error) {
+                console.error('Error deleting chat:', error);
+                alert('Error deleting chat: ' + error.message);
+            }
+        }
+
+        // Initial load - determine if we should show list or specific chat
+        if (chatId) {
+            // Show specific chat
+            document.getElementById('chatListContainer').style.display = 'none';
+            document.getElementById('chatMessages').style.display = 'block';
+            document.getElementById('chatInput').style.display = 'block';
+            document.getElementById('statusBadge').style.display = 'inline-block';
+            loadChat();
+        } else {
+            // Show chat list
+            document.getElementById('chatListContainer').style.display = 'block';
+            document.getElementById('chatMessages').style.display = 'none';
+            document.getElementById('chatInput').style.display = 'none';
+            document.getElementById('statusBadge').style.display = 'none';
+            loadChatList();
+        }
     </script>
 </body>
 </html>

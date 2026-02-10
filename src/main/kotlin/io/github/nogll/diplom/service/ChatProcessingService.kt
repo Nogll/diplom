@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.*
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.toJavaDuration
 
@@ -40,8 +41,9 @@ class ChatProcessingService(
     private val logger = LoggerFactory.getLogger(ChatProcessingService::class.java)
     
     // Configuration limits
-    private val maxArticlesPerQuery = 3
-    private val maxTotalArticles = 15
+    private val maxArticlesPerQuery = 15
+    private val maxTotalArticles = 100
+    private val maxInteractionPerSearch = 50
 
     @Transactional
     fun processUserMessage(chatId: UUID, message: String) {
@@ -176,8 +178,8 @@ class ChatProcessingService(
                     abstract = abstract
                 )
                 try {
+                    logger.info("Processing article ${request.title}")
                     articleProcessingService.processArticle(request)
-                    Thread.sleep(20.seconds.toJavaDuration())
                 } catch (e: Exception) {
                     logger.warn("Failed process article ${request.url}, skipping", e)
                     skippedCount++
@@ -239,7 +241,24 @@ class ChatProcessingService(
 
             // Use LLM to filter relevant interactions
             logger.info("Calling LLM to evaluate relevance of ${searchInteractions.size} interactions for chat $chatId")
-            val relevanceFlags = dbSearchLLM.process(keywords, searchInteractions)
+            //val relevanceFlags = dbSearchLLM.process(keywords, searchInteractions)
+            val relevanceFlags = buildList {
+                var processedInteractions = 0
+
+                while (processedInteractions < searchInteractions.size) {
+                    val subList = searchInteractions.subList(processedInteractions, (processedInteractions + maxInteractionPerSearch).coerceAtMost(searchInteractions.size))
+                    //var processed: List<Boolean>?
+                    val processed = try {
+                        dbSearchLLM.process(keywords, subList)
+                    } catch (e: Exception) {
+                        logger.warn("Error searching db setting false", e)
+                        List(subList.size) { false }
+                    }
+                    processed.forEach { add(it) }
+                    processedInteractions += subList.size
+                    logger.info("Processed $processedInteractions of ${searchInteractions.size}")
+                }
+            }
             logger.info("LLM evaluated ${relevanceFlags.size} interactions for chat $chatId")
 
             // Save relevant interactions
@@ -331,6 +350,28 @@ class ChatProcessingService(
         val savedChat = chatRepository.save(chat)
         logger.info("New chat created with ID: ${savedChat.id}")
         return savedChat
+    }
+
+    @Transactional
+    fun deleteChat(chatId: UUID) {
+        logger.info("Deleting chat $chatId")
+        val chat = chatRepository.findById(chatId)
+            .orElseThrow { IllegalArgumentException("Chat not found: $chatId") }
+        
+        // Delete related entities explicitly (even though CASCADE is set, this is safer)
+        pubmedQueryRepository.findByChatId(chatId).forEach { query ->
+            pubmedQueryRepository.delete(query)
+        }
+        logger.debug("Deleted PubMed queries for chat $chatId")
+        
+        chatInteractionRepository.findByChatIdWithRelations(chatId).forEach { chatInteraction ->
+            chatInteractionRepository.delete(chatInteraction)
+        }
+        logger.debug("Deleted chat interactions for chat $chatId")
+        
+        // Delete the chat itself
+        chatRepository.delete(chat)
+        logger.info("Chat $chatId deleted successfully")
     }
 }
 

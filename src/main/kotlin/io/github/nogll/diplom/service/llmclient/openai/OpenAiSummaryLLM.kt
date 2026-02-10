@@ -21,15 +21,37 @@ class OpenAiSummaryLLM(
         }
 
         val prompt = """
-            Based on the user's query and the relevant interactions found, provide a comprehensive summary.
+            You are an assistant summarizing information from a curated scientific database.
             
-            User query: $userQuery
+            RULES:
+            - Use ONLY the information provided in "Relevant interactions found".
+            - Do NOT introduce external knowledge or assumptions.
+            - Do NOT invent compounds, plants, mechanisms, dosages, or formulations.
+            - You MAY reframe the user's question to match the available data.
+            - If the user's request goes beyond the available information,
+              respond with a constrained, data-based explanation of what IS known.
+            
+            User query:
+            "$userQuery"
             
             Relevant interactions found:
             $interactionsText
             
-            Provide a clear, structured summary that addresses the user's query using the information from these interactions.
-            Include relevant details about plants, compounds, and their effects.
+            Task:
+            Provide a structured summary that is useful to the user,
+            while remaining strictly grounded in the provided data.
+            
+            Guidelines:
+            - Focus on reported associations between plants, compounds, and effects.
+            - Clearly distinguish between "reported effects" and "data limitations".
+            - Do NOT give medical recommendations or preparation instructions.
+            
+            Tone:
+            Scientific, informative, neutral.
+            
+            Output:
+            A clear textual summary that helps the user understand
+            what can and cannot be inferred from the available data.
             """.trimIndent()
 
         val params = ChatCompletionCreateParams.builder()

@@ -15,26 +15,44 @@ class OpenAiUserQueryLLM(
 ) : UserQueryLLM {
     override fun processUserQuery(query: String): UserQueryLLM.SearchQuery {
         val prompt = """
-            You are generating PubMed search queries for scientific literature analysis.
+            You are generating PubMed search queries and keywords for scientific literature analysis on plant-based bioactive compounds.
             
             Task:
-            Generate 3–5 broad and inclusive PubMed search queries in English that satisfy ALL of the following:
+            Generate 2 outputs based on the user query:
+            1. PubMed search queries (5-10 queries)
+            2. Semantic keywords for database matching
             
-            1. The queries MUST focus on substances of plant origin:
-               - herbal medicine
-               - medicinal plants
-               - phytotherapy
-               - plant extracts
-               - phytochemicals
-               - natural compounds from plants
+            REQUIREMENTS:
             
-            2. The queries MUST relate to the user’s described condition, symptom, or biological effect.
+            PART 1: PubMed Search Queries
+            ================================
+            - Generate 5-10 PubMed search queries in English
+            - Focus on substances of plant origin:
+              * herbal medicine, medicinal plants, phytotherapy
+              * plant extracts, phytochemicals, natural compounds
+              * botanical preparations, traditional medicine
+            - Include relevant disease/condition terms from user query
+            - DO NOT include specific plant/compound names unless explicitly mentioned by user
+            - Use MeSH terms and Boolean operators appropriately
+            - Prioritize queries that will retrieve relevant reviews and clinical studies
             
-            3. The queries MUST NOT mention specific plant species, genera, or compound names
-               unless they are explicitly stated in the user query.
+            Example valid PubMed queries:
+            - "(plant extracts OR phytochemicals) AND diabetes mellitus AND clinical trial"
+            - "herbal medicine AND inflammation AND molecular mechanisms"
+            - "medicinal plants AND antioxidant AND oxidative stress"
             
-            4. The goal is to retrieve a wide and unbiased corpus of relevant articles,
-               including reviews, experimental studies, and meta-analyses.
+            PART 2: Keywords for Database Matching
+            ======================================
+            - Extract 5-10 semantic keywords from the user query
+            - These keywords will be used for semantic similarity matching with database records
+            - Include both BROAD and SPECIFIC concepts:
+              * Disease/symptom terms (e.g., "inflammation", "neuroprotection")
+              * Biological mechanisms (e.g., "apoptosis inhibition", "enzyme modulation")
+              * Plant-related terms (e.g., "botanical", "phytochemical")
+              * Therapeutic effects (e.g., "analgesic", "hepatoprotective")
+            - Format: simple keywords or short phrases (1 sentence max)
+            - Prioritize terms that appear in scientific literature
+            - DO NOT include PubMed-specific syntax for keyword (AND, OR, brackets)
             
             User query:
             "$query"
@@ -43,6 +61,12 @@ class OpenAiUserQueryLLM(
             - Return ONLY valid JSON
             - Follow the response schema exactly
             - Do NOT include any explanations or additional text
+            
+            Response schema:
+            data class Response(
+                val pubmed_queries: List<String>,
+                val keywords: List<String>
+            )
             """.trimIndent()
 
 

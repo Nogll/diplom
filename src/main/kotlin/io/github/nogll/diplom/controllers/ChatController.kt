@@ -4,6 +4,7 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.github.nogll.diplom.dto.*
 import io.github.nogll.diplom.entity.Chat
 import io.github.nogll.diplom.repository.ChatInteractionRepository
+import io.github.nogll.diplom.repository.ChatRepository
 import io.github.nogll.diplom.repository.PubMedQueryRepository
 import io.github.nogll.diplom.service.ChatProcessingService
 import org.springframework.http.HttpStatus
@@ -21,6 +22,11 @@ class ChatController(
     private val chatInteractionRepository: ChatInteractionRepository
 ) {
     @GetMapping
+    fun getChatListPage(): String {
+        return "forward:/chat.html"
+    }
+    
+    @GetMapping("/new")
     fun createChat(): RedirectView {
         val chat = chatProcessingService.createChat()
         return RedirectView("/chat/${chat.id}")
@@ -36,10 +42,31 @@ class ChatController(
 @RequestMapping("/api/v1/chat")
 class ChatApiController(
     private val chatProcessingService: ChatProcessingService,
+    private val chatRepository: ChatRepository,
     private val pubmedQueryRepository: PubMedQueryRepository,
     private val chatInteractionRepository: ChatInteractionRepository
 ) {
     private val objectMapper = jacksonObjectMapper()
+
+    @GetMapping
+    fun getAllChats(): ResponseEntity<ChatListResponse> {
+        val chats = chatRepository.findAllOrderByLastUpdateDesc()
+        val chatDtos = chats.map { chat ->
+            val userMessage = chat.userMessage?.let { message ->
+                if (message.length > 100) {
+                    message.substring(0, 100) + "..."
+                } else {
+                    message
+                }
+            }
+            ChatListItemDto(
+                id = chat.id!!,
+                userMessage = userMessage,
+                status = chat.status.name
+            )
+        }
+        return ResponseEntity.ok(ChatListResponse(chats = chatDtos))
+    }
 
     @GetMapping("/{id}")
     fun getChat(@PathVariable id: UUID): ResponseEntity<ChatResponse> {
@@ -95,6 +122,20 @@ class ChatApiController(
     ): ResponseEntity<Map<String, String>> {
         chatProcessingService.processUserMessage(id, request.message)
         return ResponseEntity.ok(mapOf("status" to "ok"))
+    }
+
+    @DeleteMapping("/{id}")
+    fun deleteChat(@PathVariable id: UUID): ResponseEntity<Map<String, String>> {
+        try {
+            chatProcessingService.deleteChat(id)
+            return ResponseEntity.ok(mapOf("status" to "ok", "message" to "Chat deleted successfully"))
+        } catch (e: IllegalArgumentException) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(mapOf("status" to "error", "message" to (e.message ?: "Chat not found")))
+        } catch (e: Exception) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(mapOf("status" to "error", "message" to "Failed to delete chat: ${e.message}"))
+        }
     }
 }
 

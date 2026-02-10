@@ -4,7 +4,7 @@
 
 ## Описание
 
-Web-приложение для анализа научных статей и извлечения информации о биоактивных соединениях растительного происхождения с использованием AI модели Google Gemini.
+Web-приложение для анализа научных статей и извлечения информации о биоактивных соединениях растительного происхождения с использованием AI моделей (Google Gemini или OpenAI). Включает AI-поиск в базе знаний и PubMed для формирования комплексных ответов на естественно-языковые запросы.
 
 ## Технологии
 
@@ -12,11 +12,13 @@ Web-приложение для анализа научных статей и и
 - **Database**: H2 (dev), PostgreSQL (production-ready)
 - **ORM**: JPA/Hibernate
 - **Migrations**: Liquibase
-- **AI**: Google Gemini 2.5 Flash
+- **AI**: Google Gemini 2.5 Flash / OpenAI (переключается через конфигурацию)
 - **Frontend**: HTML5, CSS3, JavaScript, Bootstrap 5
 - **API Documentation**: OpenAPI/Swagger
 - **HTML Parsing**: Jsoup (для интеграции с PubMed)
 - **HTTP Client**: Spring RestClient
+- **Markdown Rendering**: marked.js (для отображения summary в чате)
+- **Scheduling**: Spring Scheduling (для асинхронной обработки чатов)
 
 ## Структура проекта
 
@@ -27,31 +29,67 @@ src/main/
 │   │   └── MvcConfig.kt              # Конфигурация MVC и CORS
 │   ├── controllers/
 │   │   ├── ArticleController.kt      # REST API endpoints
+│   │   ├── PubMedController.kt       # PubMed search endpoints
+│   │   ├── ChatController.kt         # Chat frontend + API endpoints
 │   │   └── FrontendController.kt     # Frontend routing
 │   ├── dto/
 │   │   ├── ProcessArticleRequest.kt
 │   │   ├── ArticleDto.kt
 │   │   ├── InteractionDto.kt
-│   │   └── InteractionResponse.kt
+│   │   ├── InteractionResponse.kt
+│   │   ├── ChatResponse.kt           # Chat API responses
+│   │   ├── PubMedArticleDto.kt       # PubMed article data
+│   │   └── PubMedSearchResponse.kt   # PubMed search results
 │   ├── entity/
 │   │   ├── Model.kt
 │   │   ├── Plant.kt
 │   │   ├── Compound.kt
 │   │   ├── Article.kt
 │   │   ├── Source.kt
-│   │   └── Interaction.kt            # Main entity
+│   │   ├── Interaction.kt            # Main entity
+│   │   ├── Chat.kt                   # Chat entity with status machine
+│   │   ├── PubMedQuery.kt            # PubMed queries linked to chats
+│   │   └── ChatInteraction.kt        # Interactions linked to chats
 │   ├── llm/
-│   │   └── GeminiService.kt          # AI service
+│   │   ├── UserQueryLLM.kt           # LLM interface for query analysis
+│   │   ├── ArticleProcessingLLM.kt   # LLM interface for article extraction
+│   │   ├── DbSearchLLM.kt            # LLM interface for DB search
+│   │   ├── SummaryLLM.kt             # LLM interface for summary generation
+│   │   └── GeminiService.kt          # Legacy Gemini service
+│   ├── service/llmclient/
+│   │   ├── gemini/                   # Gemini implementations
+│   │   │   ├── GeminiUserQueryLLM.kt
+│   │   │   ├── GeminiArticleProcessingLLM.kt
+│   │   │   ├── GeminiDbSearchLLM.kt
+│   │   │   └── GeminiSummaryLLM.kt
+│   │   └── openai/                   # OpenAI implementations
+│   │       ├── OpenAiUserQueryLLM.kt
+│   │       ├── OpenAiArticleProcessingLLM.kt
+│   │       ├── OpenAiDbSearchLLM.kt
+│   │       └── OpenAiSummaryLLM.kt
 │   ├── repository/                   # JPA repositories
+│   │   ├── ModelRepository.kt
+│   │   ├── PlantRepository.kt
+│   │   ├── CompoundRepository.kt
+│   │   ├── ArticleRepository.kt
+│   │   ├── SourceRepository.kt
+│   │   ├── InteractionRepository.kt
+│   │   ├── ChatRepository.kt
+│   │   ├── PubMedQueryRepository.kt
+│   │   └── ChatInteractionRepository.kt
 │   ├── service/
-│   │   └── ArticleProcessingService.kt
-│   └── DiplomApplication.kt
+│   │   ├── ArticleProcessingService.kt # Business logic + CSV generation
+│   │   ├── PubMedService.kt            # PubMed search and parsing
+│   │   ├── ChatProcessingService.kt    # Chat pipeline orchestration
+│   │   └── ChatWorker.kt               # Scheduled worker for async processing
+│   └── DiplomApplication.kt           # Main application (with @EnableScheduling)
 └── resources/
     ├── db/changelog/                 # Liquibase migrations
     ├── static/                       # Frontend files
-    │   ├── index.html
-    │   ├── app.js
-    │   └── styles.css
+    │   ├── index.html                # Main page
+    │   ├── chat.html                 # AI chat interface
+    │   ├── app.js                    # Main page JavaScript
+    │   └── styles.css                # Custom styles
     └── application.yaml
 ```
 
@@ -85,29 +123,53 @@ src/main/
 - Имена файлов с временной меткой
 - Готово для анализа в pandas/Excel
 
-### 5. API
+### 5. AI Chat - Поиск в базе знаний и PubMed
+- Естественно-языковые запросы пользователя
+- Автоматическое формирование семантически релевантных PubMed запросов
+- Поиск релевантных публикаций в PubMed
+- Контекстуальный поиск во внутренней базе данных взаимодействий
+- Генерация summary на основе найденных данных с ссылками на источники
+- Асинхронная обработка через worker-based pipeline
+- Отображение summary в формате Markdown
+- Состояния обработки: анализ запроса → поиск PubMed → поиск в БД → генерация summary
+
+### 6. API
 - `POST /api/v1/articles/process` - обработка статьи
-- `GET /api/v1/articles` - получить список статей
+- `GET /api/v1/articles` - получить список статей (paginated)
 - `GET /api/v1/articles/{id}/sources` - получить источники для статьи
 - `GET /api/v1/sources/{id}` - получить конкретный источник с исходным ответом
-- `GET /api/v1/interactions` - получить взаимодействия с фильтрами
+- `GET /api/v1/interactions` - получить взаимодействия с фильтрами (paginated)
 - `GET /api/v1/interactions/csv` - скачать взаимодействия в формате CSV
 - `GET /api/v1/pubmed/search` - поиск в PubMed (query, page)
 - `GET /api/v1/pubmed/article/abstract` - получить абстракт статьи по URL
 - `POST /api/v1/pubmed/article/process` - обработать статью из PubMed
+- `GET /chat` - создать новый чат и перенаправить
+- `GET /chat/{id}` - открыть страницу чата
+- `GET /api/v1/chat/{id}` - получить состояние чата (JSON)
+- `POST /api/v1/chat/{id}/message` - отправить сообщение в чат
 
 ## Запуск
 
-1. Установите Google API ключ в переменную окружения или настройте аутентификацию Google Cloud
-2. Соберите проект:
+1. Установите API ключ для выбранной AI модели:
+   - **OpenAI**: установите `OPENAI_API_KEY` в переменную окружения (по умолчанию используется OpenAI)
+   - **Gemini**: установите Google API ключ или настройте аутентификацию Google Cloud
+2. Настройте выбор модели в `application.yaml`:
+   ```yaml
+   llm:
+     model: openai  # или gemini
+     openai:
+       base-url: https://api.artemox.com/v1
+       api-key: ${OPENAI_API_KEY}
+   ```
+3. Соберите проект:
    ```bash
    ./gradlew build
    ```
-3. Запустите приложение:
+4. Запустите приложение:
    ```bash
    ./gradlew bootRun
    ```
-4. Откройте браузер: http://localhost:8080
+5. Откройте браузер: http://localhost:8080
 
 ## База данных
 
@@ -115,12 +177,19 @@ src/main/
 
 - **model** - AI модели для извлечения данных
 - **article** - научные статьи
-- **source** - связь статей с моделями
+- **source** - связь статей с моделями + сохранение raw_response от AI
 - **plant** - растения
 - **compound** - биоактивные соединения
 - **interactions** - взаимодействия (plant + compound + effects + parts + source)
+- **chats** - чаты с пользователями (UUID ID, status, user_message, keywords, summary, timestamps, version для optimistic locking)
+- **pubmed_queries** - PubMed запросы, связанные с чатами
+- **chat_interactions** - связи между чатами и найденными взаимодействиями
 
 Миграции Liquibase автоматически создают структуру БД при старте приложения. Данные сохраняются между перезапусками.
+
+### Миграции
+- `db.changelog-1.0.yaml` - основная схема БД (model, article, source, plant, compound, interactions)
+- `db.changelog-2.0.yaml` - схема для чатов (chats, pubmed_queries, chat_interactions)
 
 ## Настройка для PostgreSQL
 
@@ -154,10 +223,20 @@ API документация доступна по адресу: http://localhos
 - Transactions предотвращают проблемы с lazy-loading в JPA
 
 ### AI Integration
-- Используется Google Gemini 2.5 Flash модель
-- Структурированный вывод в формате JSON
-- Автоматическое создание/поиск существующих записей для растений и соединений
-- Сохранение исходных ответов AI для отладки и аудита
+- **Поддержка двух LLM бэкендов**: Google Gemini и OpenAI (переключение через конфигурацию)
+- **Модульная архитектура**: интерфейсы LLM для разных задач (UserQueryLLM, ArticleProcessingLLM, DbSearchLLM, SummaryLLM)
+- **Условные бины**: `@ConditionalOnProperty` для автоматического выбора реализации
+- **Структурированный вывод**: JSON schema для Gemini, structuredOutput для OpenAI
+- **Сохранение raw ответов**: все ответы AI сохраняются в `Source.rawResponse` для отладки и аудита
+- **Автоматическое создание/поиск**: существующих записей для растений и соединений
+
+### AI Chat Pipeline
+- **Асинхронная обработка**: worker-based pipeline через `@Scheduled` задачи
+- **Машина состояний**: ChatStatus enum для отслеживания прогресса
+- **Optimistic locking**: `@Version` в Chat entity для предотвращения конфликтов
+- **Статусы**: NEW → USER_MESSAGE → USER_MESSAGE_PROCESS → SEARCH_PUBMED → SEARCH_DB → SUMMARY → COMPLETE
+- **Ограничения**: максимум 3 статьи на запрос, максимум 15 статей всего
+- **Логирование**: подробное логирование всех этапов обработки (DEBUG уровень для пакета `io.github.nogll.diplom`)
 
 ### PubMed Integration
 - Использует Spring RestClient для получения HTML из PubMed
@@ -172,6 +251,14 @@ API документация доступна по адресу: http://localhos
 - Колонки: row (последовательный номер), plant, compound, effect, article (URL), model
 - Имена файлов с временной меткой
 - Предназначено для анализа в pandas/Excel
+
+### Chat Frontend
+- **Markdown rendering**: summary отображается как отформатированный Markdown документ (библиотека marked.js)
+- **Отдельный скролл**: summary в отдельном контейнере с ограниченной высотой
+- **Копирование**: кнопка "Copy Markdown" для копирования исходного Markdown текста
+- **Динамическое обновление**: опрос состояния чата через API каждые 2 секунды
+- **Статусы**: визуальные индикаторы для разных состояний обработки
+- **Отображение результатов**: queries, interactions и summary для завершенных чатов
 
 ## Формат входных данных
 

@@ -38,3 +38,12 @@ data class ChatMessageRequest(
     val message: String
 )
 
+data class ChatListItemDto(
+    val id: UUID,
+    val userMessage: String?,
+    val status: String
+)
+
+data class ChatListResponse(
+    val chats: List<ChatListItemDto>
+)

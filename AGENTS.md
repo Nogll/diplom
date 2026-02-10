@@ -4,7 +4,7 @@
 
 **Title**: Дипломная работа - Формирование многомерной матрицы взаимодействия биоактивных веществ растительного происхождения с различными рецепторами (с применением методов и технологий ИИ)
 
-**Purpose**: Web application for analyzing scientific articles and extracting information about plant-derived bioactive compounds using AI (Google Gemini 2.5 Flash).
+**Purpose**: Web application for analyzing scientific articles and extracting information about plant-derived bioactive compounds using AI (Google Gemini or OpenAI). Includes AI-powered search in knowledge base and PubMed for natural language queries.
 
 ## Tech Stack
 
@@ -15,10 +15,12 @@
 - **Database**: H2 (file-based, development) → PostgreSQL (production-ready)
 - **ORM**: JPA/Hibernate
 - **Migrations**: Liquibase
-- **AI**: Google Gemini SDK (com.google.genai:1.24.0)
+- **AI**: Google Gemini SDK (com.google.genai:2.0.0) / OpenAI Java Client (com.openai:openai-java:4.13.0)
 - **API Docs**: SpringDoc OpenAPI/Swagger
 - **HTML Parsing**: Jsoup (1.17.2) for PubMed integration
 - **HTTP Client**: Spring RestClient for external API calls
+- **Markdown Rendering**: marked.js (12.0.0) for chat summary display
+- **Scheduling**: Spring Scheduling for async chat processing
 
 ### Frontend
 - HTML5, CSS3, JavaScript (vanilla, no frameworks)
@@ -40,6 +42,7 @@ src/main/
 │   ├── controllers/
 │   │   ├── ArticleController.kt       # REST API (/api/v1/*)
 │   │   ├── PubMedController.kt        # PubMed search endpoints
+│   │   ├── ChatController.kt          # Chat frontend + API endpoints
 │   │   └── FrontendController.kt      # Frontend routing (/)
 │   ├── dto/
 │   │   ├── ProcessArticleRequest.kt   # Request for processing articles
@@ -49,33 +52,58 @@ src/main/
 │   │   ├── ArticleResponse.kt         # Paginated article response
 │   │   ├── SourceDto.kt               # AI source data transfer
 │   │   ├── PubMedArticleDto.kt       # PubMed article data
-│   │   └── PubMedSearchResponse.kt   # PubMed search results
+│   │   ├── PubMedSearchResponse.kt   # PubMed search results
+│   │   └── ChatResponse.kt            # Chat API responses
 │   ├── entity/
 │   │   ├── Model.kt                   # AI model metadata
 │   │   ├── Plant.kt                   # Plant entity
 │   │   ├── Compound.kt                # Bioactive compound entity
 │   │   ├── Article.kt                 # Scientific article entity
 │   │   ├── Source.kt                  # Source linking article+model+raw response
-│   │   └── Interaction.kt             # Main entity (plant-compound-effects)
+│   │   ├── Interaction.kt             # Main entity (plant-compound-effects)
+│   │   ├── Chat.kt                    # Chat entity with status machine
+│   │   ├── PubMedQuery.kt             # PubMed queries linked to chats
+│   │   └── ChatInteraction.kt         # Interactions linked to chats
 │   ├── llm/
-│   │   └── GeminiService.kt           # Google Gemini AI integration
+│   │   ├── UserQueryLLM.kt            # LLM interface for query analysis
+│   │   ├── ArticleProcessingLLM.kt   # LLM interface for article extraction
+│   │   ├── DbSearchLLM.kt             # LLM interface for DB search
+│   │   ├── SummaryLLM.kt              # LLM interface for summary generation
+│   │   └── GeminiService.kt           # Legacy Gemini service
+│   ├── service/llmclient/
+│   │   ├── gemini/                    # Gemini implementations
+│   │   │   ├── GeminiUserQueryLLM.kt
+│   │   │   ├── GeminiArticleProcessingLLM.kt
+│   │   │   ├── GeminiDbSearchLLM.kt
+│   │   │   └── GeminiSummaryLLM.kt
+│   │   └── openai/                    # OpenAI implementations
+│   │       ├── OpenAiUserQueryLLM.kt
+│   │       ├── OpenAiArticleProcessingLLM.kt
+│   │       ├── OpenAiDbSearchLLM.kt
+│   │       └── OpenAiSummaryLLM.kt
 │   ├── repository/
 │   │   ├── ModelRepository.kt         # JPA repositories
 │   │   ├── PlantRepository.kt
 │   │   ├── CompoundRepository.kt
 │   │   ├── ArticleRepository.kt
 │   │   ├── SourceRepository.kt
-│   │   └── InteractionRepository.kt   # Custom queries with JOIN FETCH
+│   │   ├── InteractionRepository.kt   # Custom queries with JOIN FETCH
+│   │   ├── ChatRepository.kt          # Chat repository
+│   │   ├── PubMedQueryRepository.kt   # PubMed query repository
+│   │   └── ChatInteractionRepository.kt # Chat interaction repository
 │   └── service/
 │       ├── ArticleProcessingService.kt # Business logic + CSV generation
-│       └── PubMedService.kt            # PubMed search and parsing
+│       ├── PubMedService.kt            # PubMed search and parsing
+│       ├── ChatProcessingService.kt    # Chat pipeline orchestration
+│       └── ChatWorker.kt               # Scheduled worker for async processing
 └── resources/
     ├── db/changelog/
     │   ├── db.changelog-master.yaml    # Liquibase master file
     │   └── db.changelog-1.0.yaml       # Initial schema + add raw_response
     ├── static/
     │   ├── index.html                  # Main frontend page
-    │   ├── app.js                      # Frontend JavaScript logic
+    │   ├── chat.html                   # AI chat interface
+    │   ├── app.js                      # Main page JavaScript
     │   └── styles.css                  # Custom styles
     └── application.yaml                # Spring configuration
 ```
@@ -88,7 +116,7 @@ src/main/
 3. **source** - Links articles to models + stores raw AI response
    - `article_id` → article.id
    - `model_id` → model.id
-   - `raw_response` TEXT (NEW - stores full AI JSON response)
+   - `raw_response` TEXT (stores full AI JSON response)
 4. **plant** - Plant species/genus names
 5. **compound** - Bioactive compound names
 6. **interactions** - Plant-compound relationships
@@ -97,6 +125,23 @@ src/main/
    - `effects` TEXT (JSON array of effects)
    - `plant_parts` TEXT (JSON array of parts)
    - `source_id` → source.id
+7. **chats** - Chat sessions with users
+   - `id` UUID (primary key)
+   - `status` VARCHAR(50) (NEW, USER_MESSAGE, USER_MESSAGE_PROCESS, SEARCH_PUBMED, SEARCH_DB, SUMMARY, COMPLETE, FAILED)
+   - `user_message` TEXT
+   - `keywords` TEXT (JSON array as string)
+   - `summary` TEXT (Markdown format)
+   - `created_at` TIMESTAMP
+   - `last_update` TIMESTAMP
+   - `version` BIGINT (for optimistic locking)
+8. **pubmed_queries** - PubMed queries linked to chats
+   - `id` BIGINT (primary key)
+   - `chat_id` UUID → chats.id
+   - `query` VARCHAR(500)
+9. **chat_interactions** - Links chats to relevant interactions
+   - `id` BIGINT (primary key)
+   - `chat_id` UUID → chats.id
+   - `interaction_id` BIGINT → interactions.id
 
 ### Database Configuration
 - **Dev**: H2 file-based at `./data/diplomdb`
@@ -145,15 +190,34 @@ src/main/
 - `GET /api/v1/pubmed/search` - Search PubMed (query, page)
 - `GET /api/v1/pubmed/article/abstract` - Get article abstract by URL
 - `POST /api/v1/pubmed/article/process` - Process article from PubMed
+- `GET /chat` - Create new chat and redirect
+- `GET /chat/{id}` - Open chat page
+- `GET /api/v1/chat/{id}` - Get chat state (JSON)
+- `POST /api/v1/chat/{id}/message` - Send message to chat
 
-### 6. Frontend
-- Four main sections:
+### 6. AI Chat - Knowledge Base and PubMed Search
+- Natural language user queries
+- Automatic formation of semantically relevant PubMed queries
+- Finding relevant publications in PubMed
+- Contextual search within internal interaction database
+- Summary generation based on found data with source links
+- Asynchronous processing through worker-based pipeline
+- Markdown-formatted summary display
+- Processing states: query analysis → PubMed search → DB search → summary generation
+- Status tracking: NEW → USER_MESSAGE → USER_MESSAGE_PROCESS → SEARCH_PUBMED → SEARCH_DB → SUMMARY → COMPLETE
+
+### 7. Frontend
+- Five main sections:
   - Upload form for articles
   - Articles list with source viewing
   - Interactions list with filtering and CSV export
   - PubMed search with article discovery
+  - AI Chat interface for natural language queries
 - Bootstrap 5 UI with modals
 - Pagination with event listeners (fixed closure issues)
+- Markdown rendering for chat summaries (marked.js)
+- Separate scrollable container for large summaries
+- Copy button for markdown text
 
 ## Critical Implementation Details
 
@@ -182,10 +246,14 @@ fun findAllWithRelations(pageable: Pageable): Page<Interaction>
 - **Why**: Data classes with lateinit cause issues with JPA/Hibernate
 
 ### AI Integration
-- **GeminiService**: Lazy initialization of client to avoid startup errors
-- **Schema**: Strict JSON schema enforced for responses
+- **Multiple LLM Backends**: Google Gemini and OpenAI support (switchable via configuration)
+- **Modular Architecture**: LLM interfaces for different tasks (UserQueryLLM, ArticleProcessingLLM, DbSearchLLM, SummaryLLM)
+- **Conditional Beans**: `@ConditionalOnProperty` for automatic implementation selection
+- **Structured Output**: JSON schema for Gemini, structuredOutput for OpenAI
 - **Raw Response**: Stored in `Source.rawResponse` for debugging/auditing
 - **Format**: Always returns JSON array of plant-compound-effect objects
+- **Configuration**: `llm.model` property in `application.yaml` (openai or gemini)
+- **OpenAI Config**: `llm.openai.base-url` and `llm.openai.api-key` in `application.yaml`
 
 ### Frontend Pagination
 - Uses event listeners instead of inline onclick
@@ -198,6 +266,18 @@ fun findAllWithRelations(pageable: Pageable): Page<Interaction>
 - Schema changes in separate changesets
 - Auto-runs on startup
 - Tracked in DATABASECHANGELOG table
+- `db.changelog-1.0.yaml`: Initial schema (model, article, source, plant, compound, interactions)
+- `db.changelog-2.0.yaml`: Chat schema (chats, pubmed_queries, chat_interactions with optimistic locking)
+
+### Asynchronous Chat Processing
+- **ChatWorker**: `@Scheduled` task that polls for chats in various states
+- **Processing Pipeline**: Worker-based pipeline for background processing
+- **Status Machine**: ChatStatus enum tracks processing stages
+- **Optimistic Locking**: `@Version` annotation on Chat entity prevents concurrent update conflicts
+- **Polling Interval**: Worker checks for pending tasks periodically
+- **State Transitions**: NEW → USER_MESSAGE → USER_MESSAGE_PROCESS → SEARCH_PUBMED → SEARCH_DB → SUMMARY → COMPLETE
+- **Error Handling**: Failed chats marked with FAILED status
+- **Configuration Limits**: Max 3 articles per query, max 15 total articles
 
 ### PubMed Integration
 - **PubMedService**: Uses Spring RestClient to fetch HTML from PubMed
@@ -214,6 +294,16 @@ fun findAllWithRelations(pageable: Pageable): Page<Interaction>
 - **Columns**: row (sequential number), plant, compound, effect, article (URL), model
 - **File Naming**: Timestamped filenames (interactions_YYYYMMDD_HHMMSS.csv)
 - **Use Case**: Designed for pandas/Excel analysis and data science workflows
+
+### Chat Frontend
+- **Markdown Rendering**: Summary displayed as formatted Markdown document (marked.js library)
+- **Separate Scroll**: Summary in separate container with max-height and overflow-y
+- **Copy Button**: "Copy Markdown" button to copy raw markdown text to clipboard
+- **Visual Feedback**: Button turns green when copied
+- **Polling**: Frontend polls chat state every 2 seconds
+- **Status Display**: Visual indicators for different processing states
+- **Result Display**: Shows queries, interactions, and summary for completed chats
+- **Dynamic Updates**: UI updates based on chat status (NEW, COMPLETE, FAILED enable input)
 
 ## Common Tasks
 
@@ -245,7 +335,7 @@ fun findAllWithRelations(pageable: Pageable): Page<Interaction>
 - Return appropriate HTTP status codes
 
 #### Frontend Changes
-- Edit `static/index.html`, `app.js`, or `styles.css`
+- Edit `static/index.html`, `static/chat.html`, `app.js`, or `styles.css`
 - No build process - changes are instant
 - Use event listeners, not inline handlers
 
@@ -262,6 +352,14 @@ fun findAllWithRelations(pageable: Pageable): Page<Interaction>
 ### H2 Warnings
 **Problem**: Various H2 deprecation warnings
 **Solution**: Suppressed with configuration (minor, safe to ignore)
+
+### Optimistic Locking
+**Problem**: `ObjectOptimisticLockingFailureException` when multiple transactions try to update same Chat
+**Solution**: Added `@Version` annotation to Chat entity + `version` column in database
+
+### PostgreSQL bytea Type Issue
+**Problem**: `function lower(bytea) does not exist` in PostgreSQL queries
+**Solution**: Reordered WHERE clauses in JPQL queries to ensure correct parameter type inference
 
 ## API Response Format
 
@@ -296,13 +394,31 @@ fun findAllWithRelations(pageable: Pageable): Page<Interaction>
 - Liquibase configuration
 - JPA/Hibernate settings
 - `open-in-view: false` (important for transaction management)
+- LLM configuration:
+  ```yaml
+  llm:
+    model: openai  # or gemini
+    openai:
+      base-url: https://api.artemox.com/v1
+      api-key: ${OPENAI_API_KEY}
+  ```
+- Logging configuration:
+  ```yaml
+  logging:
+    level:
+      root: INFO
+      io.github.nogll.diplom: DEBUG  # Debug logging for application package
+  ```
 
 ### build.gradle.kts
 - Spring Boot 3.5.7
 - Kotlin 1.9.25
 - AllOpen plugin for JPA entities
-- Google Gemini SDK
+- Google Gemini SDK (com.google.genai:2.0.0)
+- OpenAI Java Client (com.openai:openai-java:4.13.0)
 - Liquibase core
+- Jsoup (1.17.2) for PubMed HTML parsing
+- SpringDoc OpenAPI for API documentation
 
 ## Testing the Application
 
@@ -316,6 +432,12 @@ fun findAllWithRelations(pageable: Pageable): Page<Interaction>
 7. View raw AI responses
 8. Test PubMed search: Search for articles, view abstracts, upload from PubMed
 9. Test CSV export: Download CSV with and without filters
+10. Test AI Chat: 
+    - Click "AI Chat" link
+    - Enter natural language query (e.g., "What are the effects of garlic compounds?")
+    - Observe status changes and processing pipeline
+    - View generated summary in Markdown format
+    - Test copy button for markdown text
 
 ### Test Data Example
 ```json
@@ -329,12 +451,12 @@ fun findAllWithRelations(pageable: Pageable): Page<Interaction>
 ## Future Enhancements (Not Implemented)
 
 - User authentication
-- Multiple AI model support
 - Advanced search
 - Admin panel
 - Batch processing
 - API rate limiting
 - Metrics and analytics dashboard
+- Visualization (heatmaps, network graphs, statistical charts)
 
 ## Dependencies to Know
 
@@ -342,9 +464,11 @@ fun findAllWithRelations(pageable: Pageable): Page<Interaction>
 - `spring-boot-starter-data-jpa` - Database access
 - `spring-boot-starter-webflux` - WebFlux for RestClient
 - `liquibase-core` - Migrations
-- `com.google.genai` - Gemini AI
+- `com.google.genai` - Gemini AI SDK
+- `com.openai:openai-java` - OpenAI Java Client
 - `springdoc-openapi` - API docs
 - `org.jsoup:jsoup` - HTML parsing for PubMed
+- `marked.js` - Markdown rendering (via CDN in chat.html)
 - `h2` - Development database
 - `postgresql` - Production database (configured, not used)
 
@@ -386,9 +510,11 @@ class MyController(
 ## Contact & Notes
 
 - This is a bachelor's thesis project
-- Currently MVP stage
+- Currently MVP stage with AI Chat functionality
 - H2 database for development
 - PostgreSQL ready for production
 - No authentication implemented
 - API is public (consider adding security in production)
+- OpenAI is default LLM backend (configurable via application.yaml)
+- Debug logging enabled for `io.github.nogll.diplom` package
 

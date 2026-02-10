@@ -7,6 +7,8 @@ import io.github.nogll.diplom.llm.ArticleProcessingLLM
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Service
 import kotlin.jvm.optionals.asSequence
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.toJavaDuration
 
 @Service
 @ConditionalOnProperty(name = ["llm.model"], havingValue = "openai")
@@ -41,6 +43,7 @@ class OpenAiArticleProcessingLLM(
             val interactions: List<ExtractedInteraction>
         )
 
+        Thread.sleep(15.seconds.toJavaDuration())
         val params = ChatCompletionCreateParams.builder()
             .addUserMessage(prompt)
             .model(OpenAiClientService.MODEL)
