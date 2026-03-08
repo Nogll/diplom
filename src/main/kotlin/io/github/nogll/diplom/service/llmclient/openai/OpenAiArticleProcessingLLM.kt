@@ -1,11 +1,11 @@
 package io.github.nogll.diplom.service.llmclient.openai
 
 import com.openai.core.JsonSchemaLocalValidation
-import com.openai.models.ChatModel
 import com.openai.models.chat.completions.ChatCompletionCreateParams
 import io.github.nogll.diplom.llm.ArticleProcessingLLM
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Service
+import java.util.*
 import kotlin.jvm.optionals.asSequence
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.toJavaDuration
@@ -33,6 +33,9 @@ class OpenAiArticleProcessingLLM(
             { "interactions" : [...] )
             
             Do not include any text outside the JSON.
+            The system is backend server working without user with structured output from LLM.
+            The raw result will be passed to the parser without any changes, and it should not fail.
+            DO NOT begin with ```json, etc., return ONLY json string with { 
             
             Now process the following abstract:
             $text
@@ -40,6 +43,7 @@ class OpenAiArticleProcessingLLM(
 
         //StructuredChatCompletionCreateParams
         data class Response(
+            @JvmField
             val interactions: List<ExtractedInteraction>
         )
 
@@ -47,6 +51,7 @@ class OpenAiArticleProcessingLLM(
         val params = ChatCompletionCreateParams.builder()
             .addUserMessage(prompt)
             .model(OpenAiClientService.MODEL)
+            .temperature(0.0)
             .responseFormat(Response::class.java, JsonSchemaLocalValidation.NO)
             .build()
 
@@ -60,16 +65,20 @@ class OpenAiArticleProcessingLLM(
                     plant = item.plant,
                     compound = item.compound,
                     effects = item.effects,
-                    part = item.part
+                    part = item.part.orElse(null)
                 )
             }
             .toList()
     }
 
     private data class ExtractedInteraction(
-        val plant: String,
-        val compound: String,
-        val effects: List<String>,
-        val part: List<String>? = null
+        @JvmField
+        var plant: String,
+        @JvmField
+        var compound: String,
+        @JvmField
+        var effects: List<String>,
+        @JvmField
+        var part: Optional<List<String>>
     )
 }

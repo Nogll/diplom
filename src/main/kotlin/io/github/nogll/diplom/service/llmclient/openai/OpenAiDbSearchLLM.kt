@@ -44,15 +44,20 @@ class OpenAiDbSearchLLM(
             Return JSON { "results" : [1, 0, 1, ...]} an array of ${interactions.size} 0 or 1 values.
             Return only valid JSON according to the schema.
             Do not include any text outside the JSON.
+            The system is backend server working without user with structured output from LLM.
+            The raw result will be passed to the parser without any changes, and it should not fail.
+            DO NOT begin with ```json, etc., return ONLY json string with { 
             """.trimIndent()
 
         data class Response(
-            val results: List<Int>
+            @JvmField
+            var results: List<Int>
         )
 
         val params = ChatCompletionCreateParams.builder()
             .addUserMessage(prompt)
             .model(OpenAiClientService.MODEL)
+            .temperature(0.0)
             .responseFormat(Response::class.java, JsonSchemaLocalValidation.NO)
             .build()
 

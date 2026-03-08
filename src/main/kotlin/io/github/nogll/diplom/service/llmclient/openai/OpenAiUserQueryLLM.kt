@@ -61,6 +61,9 @@ class OpenAiUserQueryLLM(
             - Return ONLY valid JSON
             - Follow the response schema exactly
             - Do NOT include any explanations or additional text
+            - The raw result will be passed to the parser without any changes, and it should not fail.
+            - The system is backend server working without user with structured output from LLM.
+            - DO NOT begin with ```json, etc., return ONLY json string with { 
             
             Response schema:
             data class Response(
@@ -72,13 +75,16 @@ class OpenAiUserQueryLLM(
 
 
         data class Response(
-            val pubmed_queries: List<String>,
-            val keywords: List<String>
+            @JvmField
+            var pubmed_queries: List<String>,
+            @JvmField
+            var keywords: List<String>
         )
 
         val params = ChatCompletionCreateParams.builder()
             .addUserMessage(prompt)
             .model(OpenAiClientService.MODEL)
+            .temperature(0.0)
             .responseFormat(Response::class.java, JsonSchemaLocalValidation.NO)
             .build()
 
